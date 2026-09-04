@@ -1,0 +1,1093 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="serious">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#0a0a0f" id="meta-theme-color">
+  <title>Find My Wallet</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;700;800&display=swap" rel="stylesheet">
+  <style>
+    /* === RESET === */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* === CSS VARIABLES === */
+    :root {
+      --bg: #0a0a0f;
+      --surface: #16213e;
+      --surface2: #1e2d4a;
+      --accent: #2563eb;
+      --accent-glow: rgba(37,99,235,0.35);
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --radius: 16px;
+      --font: system-ui, -apple-system, 'SF Pro Display', sans-serif;
+      --shadow: 0 4px 32px rgba(0,0,0,0.5);
+    }
+    html[data-theme="playful"] {
+      --bg: #fef3c7;
+      --surface: #ffffff;
+      --surface2: #fff7ed;
+      --accent: #f97316;
+      --accent-glow: rgba(249,115,22,0.3);
+      --text: #1c1917;
+      --text-muted: #78716c;
+      --radius: 22px;
+      --font: 'Fredoka One', 'Nunito', system-ui, sans-serif;
+      --shadow: 0 6px 28px rgba(249,115,22,0.18);
+    }
+
+    /* === BASE === */
+    html, body { height: 100%; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      transition: background-color 0.8s ease, color 0.8s ease;
+      overflow: hidden;
+      padding-top: env(safe-area-inset-top);
+      padding-bottom: env(safe-area-inset-bottom);
+      padding-left: env(safe-area-inset-left);
+      padding-right: env(safe-area-inset-right);
+      position: relative;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+    * { -webkit-tap-highlight-color: transparent; }
+    button, a { touch-action: manipulation; cursor: pointer; font-family: var(--font); }
+
+    /* Paw-print background (playful only) */
+    html[data-theme="playful"] body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'%3E%3Cellipse cx='40' cy='52' rx='13' ry='10' fill='%23f97316' opacity='0.07'/%3E%3Ccircle cx='24' cy='37' r='5' fill='%23f97316' opacity='0.07'/%3E%3Ccircle cx='36' cy='30' r='5' fill='%23f97316' opacity='0.07'/%3E%3Ccircle cx='50' cy='30' r='5' fill='%23f97316' opacity='0.07'/%3E%3Ccircle cx='59' cy='38' r='5' fill='%23f97316' opacity='0.07'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* === APP SHELL === */
+    #app { height: 100%; position: relative; z-index: 1; }
+
+    /* === SCREENS === */
+    .screen {
+      display: none;
+      flex-direction: column;
+      height: 100%;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      padding: 16px;
+      padding-bottom: max(24px, env(safe-area-inset-bottom));
+    }
+    .screen.active { display: flex; }
+
+    /* === FLASH OVERLAY === */
+    #flash-overlay {
+      position: fixed; inset: 0;
+      background: white; opacity: 0;
+      pointer-events: none; z-index: 1000;
+    }
+    #flash-overlay.flash { animation: do-flash 0.7s ease forwards; }
+    @keyframes do-flash {
+      0%   { opacity: 0; }
+      18%  { opacity: 1; }
+      100% { opacity: 0; }
+    }
+
+    /* ============================================================
+       INTRO SCREEN
+    ============================================================ */
+    #screen-intro {
+      align-items: center;
+      justify-content: flex-start;
+      gap: 22px;
+      padding-top: 32px;
+    }
+
+    .intro-brand {
+      font-size: 16px;
+      font-weight: 600;
+      letter-spacing: 0.4px;
+      color: var(--text-muted);
+      text-align: center;
+      width: 100%;
+    }
+
+    .device-card {
+      background: var(--surface);
+      border-radius: 24px;
+      padding: 24px;
+      width: 100%;
+      max-width: 340px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      box-shadow: var(--shadow);
+      border: 1px solid rgba(255,255,255,0.06);
+      transition: background-color 0.8s ease, box-shadow 0.8s ease;
+    }
+    .device-icon { font-size: 40px; }
+    .device-name { font-size: 20px; font-weight: 700; }
+
+    /* Ping rings */
+    .ping-container {
+      position: relative;
+      width: 64px; height: 64px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .ping-ring {
+      position: absolute;
+      width: 64px; height: 64px;
+      border-radius: 50%;
+      border: 2px solid var(--accent);
+      opacity: 0;
+      animation: ping-expand 2s ease-out infinite;
+    }
+    .ping-ring.r2 { animation-delay: 0.67s; }
+    .ping-ring.r3 { animation-delay: 1.33s; }
+    @keyframes ping-expand {
+      0%   { transform: scale(0.25); opacity: 0.85; }
+      100% { transform: scale(1.6);  opacity: 0; }
+    }
+    .ping-dot {
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 18px var(--accent-glow);
+      transition: background 0.5s, box-shadow 0.5s;
+      z-index: 1;
+    }
+    .ping-dot.found    { background: #10b981; box-shadow: 0 0 18px rgba(16,185,129,0.5); }
+    .ping-dot.hijacked { background: #ef4444; box-shadow: 0 0 18px rgba(239,68,68,0.5);
+                         animation: dot-glitch 0.12s steps(3) infinite; }
+    @keyframes dot-glitch {
+      0%   { transform: translate(0,0); }
+      33%  { transform: translate(2px,1px); }
+      66%  { transform: translate(-2px,-1px); }
+      100% { transform: translate(0,0); }
+    }
+
+    .status-text {
+      font-size: 17px; font-weight: 600; text-align: center;
+      min-height: 24px; transition: color 0.4s;
+    }
+    .status-text.s-found    { color: #10b981; }
+    .status-text.s-hijacked { color: #ef4444; letter-spacing: 2px; font-size: 13px; }
+    .status-text.s-stolen   { color: #f97316; font-size: 19px; }
+    .status-sub {
+      font-size: 12px; color: var(--text-muted); text-align: center;
+      min-height: 16px; transition: color 0.4s;
+    }
+
+    .signal-row {
+      display: flex; gap: 18px; justify-content: center; width: 100%;
+    }
+    .sig-item {
+      display: flex; flex-direction: column; align-items: center; gap: 3px;
+      opacity: 0.28; transition: opacity 0.4s;
+    }
+    .sig-item.on { opacity: 1; }
+    .sig-icon  { font-size: 20px; }
+    .sig-label { font-size: 10px; color: var(--text-muted); letter-spacing: 0.4px; }
+
+    /* Raccoon reveal */
+    .raccoon-reveal {
+      display: flex; flex-direction: column; align-items: center;
+      gap: 10px; width: 100%;
+      opacity: 0; transform: translateY(20px);
+      pointer-events: none;
+      transition: opacity 0.65s ease, transform 0.65s ease;
+    }
+    .raccoon-reveal.visible {
+      opacity: 1; transform: translateY(0); pointer-events: auto;
+    }
+    .rr-emoji {
+      font-size: 72px;
+      animation: rr-pop 0.7s cubic-bezier(0.34,1.56,0.64,1) both;
+    }
+    @keyframes rr-pop {
+      from { transform: scale(0) rotate(-20deg); opacity: 0; }
+      to   { transform: scale(1) rotate(0deg);   opacity: 1; }
+    }
+    .rr-title { font-size: 26px; font-weight: 800; color: var(--accent); text-align: center; font-family: var(--font); }
+    .rr-sub   { font-size: 15px; color: var(--text-muted); text-align: center; }
+    .btn-begin {
+      margin-top: 6px;
+      background: var(--accent); color: white;
+      border: none; border-radius: var(--radius);
+      padding: 15px 44px; font-size: 18px; font-weight: 700;
+      box-shadow: 0 4px 24px var(--accent-glow);
+      animation: btn-appear 0.4s 0.35s cubic-bezier(0.34,1.56,0.64,1) both;
+      transition: transform 0.12s, box-shadow 0.12s;
+    }
+    @keyframes btn-appear {
+      from { transform: scale(0.8); opacity: 0; }
+      to   { transform: scale(1);   opacity: 1; }
+    }
+    .btn-begin:active { transform: scale(0.96); box-shadow: 0 2px 12px var(--accent-glow); }
+
+    /* ============================================================
+       STOP SCREEN
+    ============================================================ */
+    #screen-stop { gap: 11px; }
+
+    .stop-header {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 2px 0;
+    }
+    .prog-dots { display: flex; gap: 6px; }
+    .prog-dot {
+      width: 10px; height: 10px; border-radius: 50%;
+      transition: background 0.3s, transform 0.3s, box-shadow 0.3s;
+    }
+    .prog-dot.done    { background: #10b981; }
+    .prog-dot.current { background: var(--accent); transform: scale(1.3); box-shadow: 0 0 8px var(--accent-glow); }
+    .prog-dot.future  { background: transparent; border: 2px solid var(--text-muted); }
+
+    .stop-num { font-size: 13px; color: var(--text-muted); font-weight: 600; }
+
+    /* Mama speech card */
+    .mama-card {
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 14px;
+      display: flex; gap: 10px; align-items: flex-start;
+      box-shadow: var(--shadow);
+      border: 1.5px solid rgba(249,115,22,0.15);
+      transition: background-color 0.8s ease, box-shadow 0.8s ease;
+    }
+    .mama-avatar { font-size: 34px; flex-shrink: 0; }
+    .mama-name   { font-size: 12px; font-weight: 700; color: var(--accent); margin-bottom: 4px; letter-spacing: 0.3px; }
+    .story-text  { font-size: 14px; line-height: 1.55; color: var(--text); }
+
+    /* Map */
+    .map-wrap {
+      background: var(--surface);
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: var(--shadow);
+      border: 2px solid rgba(249,115,22,0.18);
+      flex-shrink: 0;
+      transition: background-color 0.8s ease, border-color 0.8s ease;
+    }
+    .hunt-map { width: 100%; height: auto; display: block; max-height: 220px; }
+
+    /* Raccoon SVG marker */
+    .raccoon-marker {
+      cursor: pointer;
+      transform: translate(var(--rx, -200px), var(--ry, -200px)) scale(0);
+      opacity: 0;
+      transform-origin: 0px 0px;
+    }
+    .raccoon-marker.appear {
+      animation: r-appear 0.55s cubic-bezier(0.34,1.56,0.64,1) both;
+    }
+    .raccoon-marker.idle {
+      transform: translate(var(--rx), var(--ry)) scale(1);
+      opacity: 1;
+      animation: r-idle 2.4s ease-in-out infinite;
+    }
+    .raccoon-marker.wiggle {
+      animation: r-wiggle 0.4s ease both;
+    }
+    .raccoon-marker.moving {
+      animation: r-move 1.7s ease-in-out forwards;
+    }
+    @keyframes r-appear {
+      from { transform: translate(var(--rx), var(--ry)) scale(0);   opacity: 0; }
+      to   { transform: translate(var(--rx), var(--ry)) scale(1);   opacity: 1; }
+    }
+    @keyframes r-idle {
+      0%,100% { transform: translate(var(--rx), var(--ry)) scale(1); }
+      50%     { transform: translate(var(--rx), calc(var(--ry) - 7px)) scale(1.04); }
+    }
+    @keyframes r-wiggle {
+      0%,100% { transform: translate(var(--rx), var(--ry)) scale(1)   rotate(0deg); }
+      22%     { transform: translate(var(--rx), var(--ry)) scale(1.18) rotate(-12deg); }
+      44%     { transform: translate(var(--rx), var(--ry)) scale(1.18) rotate(12deg); }
+      66%     { transform: translate(var(--rx), var(--ry)) scale(1.06) rotate(-6deg); }
+      84%     { transform: translate(var(--rx), var(--ry)) scale(1.02) rotate(3deg); }
+    }
+    @keyframes r-move {
+      0%  { transform: translate(var(--frx), var(--fry)) scale(1); }
+      14% { transform: translate(var(--frx), calc(var(--fry) - 22px)) scale(1.22); }
+      50% { transform: translate(
+              calc((var(--frx) + var(--rx)) / 2),
+              calc((var(--fry) + var(--ry)) / 2 - 56px)
+            ) scale(1.18); }
+      80% { transform: translate(var(--rx), calc(var(--ry) - 24px)) scale(1.06); }
+      91% { transform: translate(var(--rx), calc(var(--ry) + 12px)) scale(0.88); }
+      97% { transform: translate(var(--rx), calc(var(--ry) - 6px))  scale(1.04); }
+      100%{ transform: translate(var(--rx), var(--ry)) scale(1); }
+    }
+
+    /* Tap hint */
+    .tap-hint {
+      display: flex; align-items: center; justify-content: center;
+      gap: 8px; font-size: 14px; color: var(--text-muted);
+      transition: opacity 0.4s ease;
+    }
+    .tap-hint.gone { opacity: 0; pointer-events: none; }
+    .tap-icon { font-size: 20px; animation: tap-bob 1.3s ease-in-out infinite; }
+    @keyframes tap-bob {
+      0%,100% { transform: translateY(0); }
+      50%     { transform: translateY(-5px); }
+    }
+
+    /* Address card */
+    .addr-card {
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 18px;
+      box-shadow: var(--shadow);
+      border: 2px solid var(--accent);
+      transition: background-color 0.8s, border-color 0.8s;
+    }
+    .addr-card.hidden { display: none; }
+    .addr-card.reveal { animation: card-up 0.5s cubic-bezier(0.34,1.2,0.64,1) both; }
+    @keyframes card-up {
+      from { transform: translateY(36px); opacity: 0; }
+      to   { transform: translateY(0);    opacity: 1; }
+    }
+    .addr-label { font-size: 15px; font-weight: 800; color: var(--accent); margin-bottom: 6px; }
+    .addr-text  { font-size: 14px; line-height: 1.5; color: var(--text); margin-bottom: 14px; }
+    .addr-btns  { display: flex; gap: 10px; }
+    .btn {
+      flex: 1; padding: 12px 6px; border-radius: 14px;
+      font-size: 14px; font-weight: 700; text-align: center;
+      text-decoration: none; border: none;
+      display: flex; align-items: center; justify-content: center;
+      min-height: 44px;
+      transition: transform 0.1s, opacity 0.1s;
+    }
+    .btn:active { transform: scale(0.96); opacity: 0.88; }
+    .btn-primary   { background: var(--accent); color: white; box-shadow: 0 4px 16px var(--accent-glow); }
+    .btn-secondary {
+      background: var(--surface2); color: var(--text);
+      border: 1.5px solid rgba(255,255,255,0.1);
+      transition: background-color 0.8s, color 0.8s, border-color 0.8s;
+    }
+    html[data-theme="playful"] .btn-secondary { border-color: rgba(0,0,0,0.1); }
+    .next-hint { margin-top: 11px; font-size: 13px; color: var(--text-muted); text-align: center; }
+
+    /* ============================================================
+       FINAL SCREEN
+    ============================================================ */
+    #screen-final {
+      align-items: center; justify-content: center;
+      text-align: center; gap: 18px;
+    }
+    .final-wrap { display: flex; flex-direction: column; align-items: center; gap: 16px; max-width: 320px; }
+    .final-raccoon {
+      font-size: 88px;
+      animation: final-pop 0.8s cubic-bezier(0.34,1.56,0.64,1) both;
+    }
+    @keyframes final-pop {
+      from { transform: scale(0) rotate(-25deg); opacity: 0; }
+      60%  { transform: scale(1.2) rotate(8deg); }
+      100% { transform: scale(1)   rotate(0deg); opacity: 1; }
+    }
+    .final-title {
+      font-size: 30px; font-weight: 800;
+      color: var(--accent); font-family: var(--font);
+    }
+    .final-story {
+      font-size: 15px; line-height: 1.6; color: var(--text);
+      background: var(--surface); border-radius: var(--radius);
+      padding: 18px; box-shadow: var(--shadow);
+      transition: background-color 0.8s, box-shadow 0.8s;
+    }
+    .final-wallet {
+      font-size: 56px;
+      animation: wallet-float 2.2s ease-in-out 0.4s infinite alternate;
+    }
+    @keyframes wallet-float {
+      from { transform: translateY(0)   rotate(-5deg); }
+      to   { transform: translateY(-14px) rotate(5deg); }
+    }
+    .final-msg { font-size: 16px; font-weight: 700; color: var(--accent); }
+
+    /* ============================================================
+       CONFETTI
+    ============================================================ */
+    .confetti-bit {
+      position: fixed; top: -20px; z-index: 999;
+      pointer-events: none;
+      animation: confetti-fall linear forwards;
+    }
+    @keyframes confetti-fall {
+      to { transform: translateY(110vh) rotate(720deg); opacity: 0; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="flash-overlay"></div>
+
+<div id="app">
+
+  <!-- ==================== SCREEN 0: INTRO ==================== -->
+  <section id="screen-intro" class="screen active">
+    <span class="intro-brand">Find My</span>
+
+    <div class="device-card">
+      <div class="device-icon">👜</div>
+      <div class="device-name">Wallet</div>
+      <div class="ping-container">
+        <div class="ping-ring r1"></div>
+        <div class="ping-ring r2"></div>
+        <div class="ping-ring r3"></div>
+        <div class="ping-dot" id="ping-dot"></div>
+      </div>
+      <div class="status-text" id="status-text">Locating item…</div>
+      <div class="status-sub"  id="status-sub">Searching nearby devices</div>
+    </div>
+
+    <div class="signal-row">
+      <div class="sig-item on">
+        <span class="sig-icon">📡</span>
+        <span class="sig-label">Bluetooth</span>
+      </div>
+      <div class="sig-item" id="sig-uwb">
+        <span class="sig-icon">📶</span>
+        <span class="sig-label">UWB</span>
+      </div>
+      <div class="sig-item" id="sig-pf">
+        <span class="sig-icon">🎯</span>
+        <span class="sig-label">Precision</span>
+      </div>
+    </div>
+
+    <div class="raccoon-reveal" id="raccoon-reveal">
+      <div class="rr-emoji">🦝</div>
+      <div class="rr-title">It was Mama Raccoon!</div>
+      <div class="rr-sub">She took your wallet on an adventure…</div>
+      <button class="btn-begin" onclick="beginHunt()">Begin the Hunt →</button>
+    </div>
+  </section>
+
+  <!-- ==================== SCREENS 1-4: STOP (reused) ==================== -->
+  <section id="screen-stop" class="screen">
+    <div class="stop-header">
+      <div class="prog-dots" id="prog-dots"></div>
+      <div class="stop-num"  id="stop-num">Stop 1 of 4</div>
+    </div>
+
+    <div class="mama-card">
+      <div class="mama-avatar">🦝</div>
+      <div>
+        <div class="mama-name">Mama Raccoon</div>
+        <div class="story-text" id="story-text">Loading…</div>
+      </div>
+    </div>
+
+    <div class="map-wrap">
+      <svg id="hunt-map" viewBox="0 0 400 300" class="hunt-map"
+           xmlns="http://www.w3.org/2000/svg" aria-label="Stylized city map">
+        <!-- Base -->
+        <rect width="400" height="300" fill="#d8e8f2"/>
+
+        <!-- River (San Antonio River, stylized) -->
+        <path d="M44,298 Q52,268 42,238 Q32,208 50,182 Q66,158 56,130 Q46,102 66,78 Q86,54 106,32 Q122,14 138,0"
+              stroke="#93c5fd" stroke-width="10" fill="none" stroke-linecap="round" opacity="0.85"/>
+        <text x="70" y="145" font-size="8" fill="#60a5fa" font-family="system-ui"
+              transform="rotate(-52 70 145)">SA River</text>
+
+        <!-- City blocks -->
+        <rect x="98"  y="44"  width="50" height="36" rx="5" fill="#c6d8e8"/>
+        <rect x="160" y="34"  width="72" height="50" rx="5" fill="#d4e2f0"/>
+        <rect x="156" y="96"  width="94" height="56" rx="5" fill="#c2d6ea"/>
+        <rect x="260" y="40"  width="64" height="42" rx="5" fill="#c6d8e8"/>
+        <rect x="262" y="94"  width="56" height="42" rx="5" fill="#d4e2f0"/>
+        <rect x="98"  y="94"  width="48" height="50" rx="5" fill="#c2d6ea"/>
+        <rect x="153" y="163" width="116" height="66" rx="5" fill="#c6d8e8"/>
+        <rect x="284" y="146" width="86" height="96" rx="5" fill="#d4e2f0"/>
+        <rect x="40"  y="156" width="93" height="74" rx="5" fill="#c2d6ea"/>
+        <rect x="70"  y="238" width="116" height="56" rx="5" fill="#c6d8e8"/>
+        <rect x="198" y="246" width="70" height="50" rx="5" fill="#d4e2f0"/>
+        <rect x="8"   y="40"  width="76" height="94" rx="5" fill="#c2d6ea"/>
+        <rect x="336" y="252" width="58" height="44" rx="5" fill="#c6d8e8"/>
+
+        <!-- I-35 (N-S) -->
+        <line x1="150" y1="0" x2="150" y2="300" stroke="white" stroke-width="5"/>
+        <text x="154" y="13" fill="#8fa8c0" font-size="9" font-family="system-ui" font-weight="600">I-35</text>
+
+        <!-- Hwy 281 (NE diagonal) -->
+        <line x1="150" y1="146" x2="400" y2="0" stroke="white" stroke-width="4"/>
+        <text x="306" y="34" fill="#8fa8c0" font-size="9" font-family="system-ui">281</text>
+
+        <!-- Loop 1604 (arc) -->
+        <path d="M0,52 Q200,-34 400,52" stroke="white" stroke-width="3.5" fill="none"/>
+        <text x="200" y="18" text-anchor="middle" fill="#8fa8c0" font-size="9" font-family="system-ui">Loop 1604</text>
+
+        <!-- E-W streets -->
+        <line x1="0" y1="146" x2="400" y2="146" stroke="white" stroke-width="3"/>
+        <line x1="0" y1="238" x2="400" y2="238" stroke="white" stroke-width="2.5"/>
+
+        <!-- N-S side streets -->
+        <line x1="56"  y1="0" x2="56"  y2="300" stroke="white" stroke-width="2.5"/>
+        <line x1="256" y1="0" x2="256" y2="300" stroke="white" stroke-width="2.5"/>
+
+        <!-- Home star -->
+        <g transform="translate(30,268)">
+          <circle r="12" fill="#fbbf24" stroke="white" stroke-width="2.5"/>
+          <text text-anchor="middle" dy="5" font-size="13">🏠</text>
+        </g>
+        <text x="30" y="292" font-size="7" fill="#6b7280" font-family="system-ui" text-anchor="middle">Home</text>
+
+        <!-- Raccoon marker (JS positions via --rx / --ry CSS vars) -->
+        <g id="raccoon-marker" class="raccoon-marker">
+          <!-- Invisible large tap target -->
+          <circle cx="0" cy="-42" r="44" fill="transparent"/>
+
+          <!-- Drop shadow -->
+          <ellipse cx="0" cy="3" rx="9" ry="4.5" fill="rgba(0,0,0,0.22)"/>
+
+          <!-- Pin body -->
+          <path d="M0,0 L-11,-17 A11,11 0 1,1 11,-17 Z" fill="#f97316"/>
+          <circle cx="0" cy="-28" r="11" fill="#f97316"/>
+          <!-- Pin highlight -->
+          <circle cx="-3" cy="-31" r="3.5" fill="rgba(255,255,255,0.32)"/>
+
+          <!-- Head -->
+          <circle cx="0" cy="-54" r="21" fill="#9CA3AF"/>
+
+          <!-- Ears -->
+          <polygon points="-10,-71 -22,-88 -1,-77" fill="#6B7280"/>
+          <polygon points=" 10,-71  22,-88  1,-77" fill="#6B7280"/>
+          <!-- Ear inner -->
+          <polygon points="-10,-73 -18,-85 -2,-78" fill="#f9a8d4"/>
+          <polygon points=" 10,-73  18,-85  2,-78" fill="#f9a8d4"/>
+
+          <!-- Mask patches -->
+          <ellipse cx="-9"  cy="-56" rx="7.5" ry="6.5" fill="#374151"/>
+          <ellipse cx=" 9"  cy="-56" rx="7.5" ry="6.5" fill="#374151"/>
+          <!-- White bridge -->
+          <ellipse cx="0"   cy="-51" rx="5.5" ry="7.5" fill="#F9FAFB"/>
+
+          <!-- Eyes -->
+          <circle cx="-9"  cy="-57" r="4"   fill="white"/>
+          <circle cx=" 9"  cy="-57" r="4"   fill="white"/>
+          <circle cx="-9"  cy="-57" r="2.1" fill="#111827"/>
+          <circle cx=" 9"  cy="-57" r="2.1" fill="#111827"/>
+          <!-- Eye shines -->
+          <circle cx="-7.5" cy="-58.5" r="0.9" fill="white"/>
+          <circle cx="10.5" cy="-58.5" r="0.9" fill="white"/>
+
+          <!-- Muzzle -->
+          <ellipse cx="0" cy="-46" rx="7.5" ry="6" fill="#E9D5C0"/>
+          <!-- Nose -->
+          <ellipse cx="0" cy="-49.5" rx="3" ry="2.2" fill="#374151"/>
+          <!-- Mouth -->
+          <path d="M-3.5,-43.5 Q0,-41 3.5,-43.5" stroke="#374151" stroke-width="1.4"
+                fill="none" stroke-linecap="round"/>
+
+          <!-- Face stripe -->
+          <path d="M-20,-54 Q-10,-51 0,-54 Q10,-51 20,-54"
+                stroke="#6B7280" stroke-width="1.5" fill="none" opacity="0.4" stroke-linecap="round"/>
+        </g>
+      </svg>
+    </div>
+
+    <div class="tap-hint" id="tap-hint">
+      <span class="tap-icon">👆</span>
+      <span>Tap Mama Raccoon to send her on her way!</span>
+    </div>
+
+    <div class="addr-card hidden" id="addr-card">
+      <div class="addr-label" id="addr-label">📍 Location</div>
+      <div class="addr-text"  id="addr-text">Address</div>
+      <div class="addr-btns">
+        <button class="btn btn-secondary" id="btn-copy">📋 Copy</button>
+        <a      class="btn btn-primary"   id="btn-maps" target="_blank" rel="noopener">🗺 Maps</a>
+      </div>
+      <div class="next-hint" id="next-hint"></div>
+    </div>
+  </section>
+
+  <!-- ==================== SCREEN 5: FINAL ==================== -->
+  <section id="screen-final" class="screen">
+    <div class="final-wrap">
+      <div class="final-raccoon">🦝</div>
+      <div class="final-title">You Found Everything!</div>
+      <div class="final-story" id="final-story">
+        Mama Raccoon had quite the adventure — and so did you! She borrowed your wallet to leave
+        breadcrumbs all across San Antonio. Now she's waiting at home with it… and something extra special. 🎁
+      </div>
+      <div class="final-wallet">👜✨</div>
+      <div class="final-msg">Your wallet (and a surprise) is waiting at home!</div>
+    </div>
+  </section>
+
+</div><!-- #app -->
+
+<script>
+/* ============================================================
+   STOPS DATA
+============================================================ */
+// Home marker is at SVG (30, 268) → 7.5% / 89.3% of the 400×300 viewBox
+const HOME_X = 7.5, HOME_Y = 89.3;
+
+const STOPS = [
+  null, // index 0 = intro
+  {
+    id: 1,
+    label: 'Salado Creek Greenway',
+    story: 'I found the most wonderful trail along the creek! Perfect for a little raccoon with a stolen wallet and nowhere to be. I may have waddled all the way out here just to enjoy the breeze… Follow the path and come find me! 🌿',
+    address: 'Salado Creek Greenway near Eisenhower Park, San Antonio, TX',
+    mapQ: 'Salado+Creek+Greenway+near+Eisenhower+Park+San+Antonio+TX',
+    fromX: HOME_X, fromY: HOME_Y, // raccoon starts at home
+    mx: 30, my: 55,
+    nextHint: 'Clue #2 is waiting — follow the scent! 🌮'
+  },
+  {
+    id: 2,
+    label: 'Munchies',
+    story: 'A raccoon cannot run a scavenger hunt on an empty stomach! I stopped here for provisions. You should grab something too — you\'ve earned it! The wallet is safe… mostly. 😅',
+    address: '923 N Loop 1604 E #109, San Antonio, TX 78232',
+    mapQ: '923+N+Loop+1604+E+%23109+San+Antonio+TX+78232',
+    fromX: 30, fromY: 55, // raccoon starts at stop 1
+    mx: 62, my: 28,
+    nextHint: 'Fueled up? Onward to Stop 3! 🦌'
+  },
+  {
+    id: 3,
+    label: 'Natural Bridge Wildlife Ranch',
+    story: 'I came to visit my cousins — they\'re MUCH bigger than me. Don\'t tell them I said that. Come say hello to all the animals and find your next clue! 🦒',
+    address: '26515 Natural Bridge Caverns Rd, San Antonio, TX 78266',
+    mapQ: '26515+Natural+Bridge+Caverns+Rd+San+Antonio+TX+78266',
+    fromX: 62, fromY: 28, // raccoon starts at stop 2
+    mx: 78, my: 18,
+    nextHint: 'Almost there! Stop 4 is a romantic one 💕'
+  },
+  {
+    id: 4,
+    label: 'Love Lock Bridge',
+    story: 'I borrowed your wallet… but I left something more valuable here for you. A little lock, a raccoon scrawl, and all my heart. Find it! 🔒💕',
+    address: 'Love Lock Bridge, Main Plaza, San Antonio, TX',
+    mapQ: 'Main+Plaza+San+Antonio+TX',
+    fromX: 78, fromY: 18, // raccoon starts at stop 3
+    mx: 48, my: 62,
+    nextHint: 'Last stop — head home! 🏠🎉'
+  },
+  {
+    id: 5,
+    label: 'Home',
+    story: null,
+    address: null,
+    mapQ: null,
+    fromX: HOME_X, fromY: HOME_Y,
+    mx: HOME_X, my: HOME_Y,
+    nextHint: null
+  }
+];
+
+/* ============================================================
+   LOCALSTORAGE
+============================================================ */
+const LS = {
+  get: k => localStorage.getItem('rsh_' + k),
+  set: (k, v) => localStorage.setItem('rsh_' + k, v)
+};
+const isDone = n => LS.get('stop_' + n + '_done') === '1';
+const markDone = n => LS.set('stop_' + n + '_done', '1');
+
+function maxUnlocked() {
+  for (let n = 5; n >= 2; n--) {
+    if (isDone(n - 1)) return n;
+  }
+  return 1;
+}
+
+/* ============================================================
+   THEME
+============================================================ */
+function setTheme(t) {
+  document.documentElement.setAttribute('data-theme', t);
+  LS.set('theme', t);
+  const mc = document.getElementById('meta-theme-color');
+  if (mc) mc.setAttribute('content', t === 'playful' ? '#fef3c7' : '#0a0a0f');
+}
+
+/* ============================================================
+   SCREEN ROUTER
+============================================================ */
+let currentStop = 0;
+let tapFn = null;
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function route() {
+  // Restore theme first
+  const savedTheme = LS.get('theme');
+  if (savedTheme) setTheme(savedTheme);
+
+  const p = new URLSearchParams(location.search);
+  const req = parseInt(p.get('stop')) || 0;
+
+  if (req === 0) {
+    currentStop = 0;
+    startIntro();
+    return;
+  }
+
+  if (req === 5) {
+    currentStop = 5;
+    setTheme('playful');
+    startFinal();
+    return;
+  }
+
+  // Stops 1–4: enforce progression
+  const max = maxUnlocked();
+  if (req > max) {
+    // Flash a message, redirect
+    document.body.style.cssText = 'display:flex;height:100%;align-items:center;justify-content:center;font-family:system-ui;color:#f8fafc;text-align:center;padding:24px;background:#0a0a0f;font-size:18px;';
+    document.body.innerHTML = '🦝 Not so fast!<br><br>Complete Stop ' + max + ' first!';
+    setTimeout(() => location.replace('?stop=' + max), 1200);
+    return;
+  }
+
+  currentStop = req;
+  setTheme('playful');
+  mountStop(req);
+}
+
+/* ============================================================
+   INTRO SEQUENCE
+============================================================ */
+function startIntro() {
+  showScreen('screen-intro');
+  if (LS.get('intro_seen') === '1') {
+    showReveal();
+    return;
+  }
+  runIntro();
+}
+
+function runIntro() {
+  // T+3s: item found
+  setTimeout(() => {
+    ping('found');
+    setText('Item Found', 'found-state', 'Wallet · Last seen just now');
+    document.getElementById('sig-uwb').classList.add('on');
+    document.getElementById('sig-pf').classList.add('on');
+    beep(880, 'triangle', 0.25, 0.28);
+  }, 3000);
+
+  // T+4.6s: hijack flash
+  setTimeout(() => {
+    const ov = document.getElementById('flash-overlay');
+    ov.classList.add('flash');
+    ov.addEventListener('animationend', () => ov.classList.remove('flash'), { once: true });
+    ping('hijacked');
+    setText('SIGNAL INTERCEPTED', 's-hijacked', 'Connection lost — unknown entity');
+    scramble(document.getElementById('status-text'), 'SIGNAL INTERCEPTED', 560);
+    beep(200, 'sawtooth', 0.12, 0.55);
+  }, 4600);
+
+  // T+5.9s: stolen reveal
+  setTimeout(() => {
+    ping('');
+    setText('Stolen by: Mama Raccoon 🦝', 's-stolen', 'She says hi 👋');
+    scramble(document.getElementById('status-text'), 'Stolen by: Mama Raccoon 🦝', 520);
+  }, 5900);
+
+  // T+7.1s: playful theme + raccoon reveal
+  setTimeout(() => {
+    setTheme('playful');
+    showReveal();
+    LS.set('intro_seen', '1');
+  }, 7100);
+}
+
+function ping(state) {
+  const dot = document.getElementById('ping-dot');
+  dot.classList.remove('found', 'hijacked');
+  if (state) dot.classList.add(state);
+}
+
+function setText(main, cls, sub) {
+  const el = document.getElementById('status-text');
+  el.className = 'status-text ' + cls;
+  el.textContent = main;
+  document.getElementById('status-sub').textContent = sub;
+}
+
+function showReveal() {
+  document.getElementById('raccoon-reveal').classList.add('visible');
+}
+
+function beginHunt() {
+  location.href = '?stop=1';
+}
+
+function beep(freq, type, vol, dur) {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = type;
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(vol, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dur);
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.start(); osc.stop(ctx.currentTime + dur);
+  } catch (e) {}
+}
+
+function scramble(el, final, dur) {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$';
+  const steps = 20;
+  let i = 0;
+  const iv = setInterval(() => {
+    if (i >= steps) { el.textContent = final; clearInterval(iv); return; }
+    const p = i / steps;
+    el.textContent = final.split('').map((c, j) => {
+      // preserve spaces and any non-ASCII (emoji surrogates, accents, etc.)
+      if (c === ' ' || c.charCodeAt(0) > 127) return c;
+      if (j / final.length < p) return c;
+      return chars[Math.floor(Math.random() * chars.length)];
+    }).join('');
+    i++;
+  }, dur / steps);
+}
+
+/* ============================================================
+   STOP SCREEN
+============================================================ */
+function mountStop(n) {
+  const stop = STOPS[n];
+  showScreen('screen-stop');
+
+  // Progress dots
+  const dots = document.getElementById('prog-dots');
+  dots.innerHTML = '';
+  for (let i = 1; i <= 5; i++) {
+    const d = document.createElement('span');
+    d.className = 'prog-dot ' + (i < n || isDone(i) ? 'done' : i === n ? 'current' : 'future');
+    dots.appendChild(d);
+  }
+  document.getElementById('stop-num').textContent = 'Stop ' + n + ' of 4';
+
+  // Story
+  document.getElementById('story-text').textContent = stop.story;
+
+  // Reset card
+  const card = document.getElementById('addr-card');
+  card.classList.add('hidden');
+  card.classList.remove('reveal');
+
+  // Address content
+  document.getElementById('addr-label').textContent = '📍 ' + stop.label;
+  document.getElementById('addr-text').textContent  = stop.address;
+  document.getElementById('next-hint').textContent  = '';
+  document.getElementById('btn-maps').href = 'https://maps.google.com/?q=' + stop.mapQ;
+
+  const btnCopy = document.getElementById('btn-copy');
+  btnCopy.textContent = '📋 Copy';
+  btnCopy.onclick = () => copyAddr(stop.address);
+
+  // Reset tap hint
+  document.getElementById('tap-hint').classList.remove('gone');
+
+  // Clear any old tap listener
+  if (tapFn) {
+    const m = document.getElementById('raccoon-marker');
+    if (m) m.removeEventListener('click', tapFn);
+    tapFn = null;
+  }
+
+  if (isDone(n)) {
+    // Already completed — place raccoon at destination, show address right away
+    placeRaccoon(stop.mx, stop.my);
+    setTimeout(() => showAddress(n, false), 200);
+  } else {
+    // Place raccoon at the departure point (home or previous stop)
+    // Once it pops in, enable the tap to send it running
+    placeRaccoon(stop.fromX, stop.fromY, () => enableTap(n, stop.mx, stop.my));
+  }
+}
+
+/* ============================================================
+   RACCOON ANIMATION
+============================================================ */
+
+// Place raccoon at a map position (% of viewBox). Calls onReady after pop-in.
+function placeRaccoon(pctX, pctY, onReady) {
+  const rx = (pctX / 100) * 400;
+  const ry = (pctY / 100) * 300;
+
+  const m = document.getElementById('raccoon-marker');
+  m.style.setProperty('--rx', rx + 'px');
+  m.style.setProperty('--ry', ry + 'px');
+
+  m.className = 'raccoon-marker'; // clear all animation classes
+  void m.offsetWidth;             // force reflow (Safari quirk)
+  m.classList.add('appear');
+
+  m.addEventListener('animationend', function onA(e) {
+    if (e.animationName !== 'r-appear') return;
+    m.removeEventListener('animationend', onA);
+    m.classList.remove('appear');
+    m.classList.add('idle');
+    if (onReady) onReady();
+  });
+}
+
+// Move raccoon from its current position to a new map position (arc animation).
+// Calls onDone after landing.
+function moveRaccoon(toPctX, toPctY, onDone) {
+  const rx = (toPctX / 100) * 400;
+  const ry = (toPctY / 100) * 300;
+
+  const m = document.getElementById('raccoon-marker');
+  // Save current --rx/--ry as departure point for the arc
+  m.style.setProperty('--frx', m.style.getPropertyValue('--rx'));
+  m.style.setProperty('--fry', m.style.getPropertyValue('--ry'));
+  // Set new destination
+  m.style.setProperty('--rx', rx + 'px');
+  m.style.setProperty('--ry', ry + 'px');
+
+  m.classList.remove('idle', 'wiggle');
+  void m.offsetWidth;
+  m.classList.add('moving');
+
+  m.addEventListener('animationend', function onM(e) {
+    if (e.animationName !== 'r-move') return;
+    m.removeEventListener('animationend', onM);
+    m.classList.remove('moving');
+    m.classList.add('idle');
+    if (onDone) onDone();
+  });
+}
+
+function enableTap(n, toPctX, toPctY) {
+  const m = document.getElementById('raccoon-marker');
+  tapFn = () => {
+    if (isDone(n)) return;
+    m.removeEventListener('click', tapFn);
+    tapFn = null;
+
+    // Wiggle first, then launch the move
+    m.classList.remove('idle');
+    void m.offsetWidth;
+    m.classList.add('wiggle');
+
+    setTimeout(() => {
+      m.classList.remove('wiggle');
+      moveRaccoon(toPctX, toPctY, () => showAddress(n, true));
+    }, 420);
+  };
+  m.addEventListener('click', tapFn);
+}
+
+/* ============================================================
+   ADDRESS REVEAL
+============================================================ */
+function showAddress(n, animate) {
+  markDone(n);
+
+  document.getElementById('tap-hint').classList.add('gone');
+
+  const card = document.getElementById('addr-card');
+  card.classList.remove('hidden');
+  if (animate) {
+    void card.offsetWidth;
+    card.classList.add('reveal');
+  }
+
+  const stop = STOPS[n];
+  if (stop.nextHint) {
+    setTimeout(() => {
+      document.getElementById('next-hint').textContent = stop.nextHint;
+    }, animate ? 700 : 0);
+  }
+}
+
+function copyAddr(text) {
+  const btn = document.getElementById('btn-copy');
+  const ok = () => {
+    btn.textContent = '✓ Copied!';
+    setTimeout(() => { btn.textContent = '📋 Copy'; }, 2000);
+  };
+  const fallback = () => {
+    const ta = Object.assign(document.createElement('textarea'), {
+      value: text,
+      style: 'position:fixed;opacity:0;top:0;left:0;'
+    });
+    document.body.appendChild(ta);
+    ta.focus(); ta.select();
+    try { document.execCommand('copy'); ok(); } catch (e) {}
+    document.body.removeChild(ta);
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(ok).catch(fallback);
+  } else { fallback(); }
+}
+
+/* ============================================================
+   FINAL SCREEN
+============================================================ */
+function startFinal() {
+  markDone(5);
+  showScreen('screen-final');
+  setTimeout(burst, 350);
+  setTimeout(burst, 1100);
+  setTimeout(burst, 2000);
+}
+
+function burst() {
+  const colors = ['#f97316','#7c3aed','#2563eb','#10b981','#f59e0b','#ec4899','#fbbf24'];
+  for (let i = 0; i < 45; i++) {
+    const el = document.createElement('div');
+    el.className = 'confetti-bit';
+    const sz = 6 + Math.random() * 8;
+    el.style.cssText = [
+      'left:' + (Math.random() * 100) + 'vw',
+      'background:' + colors[Math.floor(Math.random() * colors.length)],
+      'animation-delay:' + (Math.random() * 1.2) + 's',
+      'animation-duration:' + (2.4 + Math.random() * 2) + 's',
+      'width:' + sz + 'px',
+      'height:' + sz + 'px',
+      'border-radius:' + (Math.random() > 0.4 ? '50%' : '3px')
+    ].join(';');
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 5500);
+  }
+}
+
+/* ============================================================
+   SERVICE WORKER (offline cache via blob URL — HTTPS only)
+============================================================ */
+if ('serviceWorker' in navigator) {
+  const sw = [
+    'const C="rsh-v1";',
+    'self.addEventListener("install",e=>{',
+    '  e.waitUntil(caches.open(C).then(c=>c.addAll([self.location.href])));',
+    '  self.skipWaiting();',
+    '});',
+    'self.addEventListener("activate",e=>e.waitUntil(clients.claim()));',
+    'self.addEventListener("fetch",e=>{',
+    '  e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request)));',
+    '});'
+  ].join('\n');
+  try {
+    const blob = new Blob([sw], { type: 'application/javascript' });
+    navigator.serviceWorker.register(URL.createObjectURL(blob)).catch(() => {});
+  } catch (e) {}
+}
+
+/* ============================================================
+   INIT
+============================================================ */
+route();
+</script>
+</body>
+</html>
