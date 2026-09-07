@@ -523,12 +523,11 @@
         <a class="btn btn-primary" id="btn-maps" target="_blank" rel="noopener">🗺 Open in Maps</a>
       </div>
       <div id="photo-section" class="photo-section">
-        <p class="photo-prompt">🦝 Mama Raccoon needs proof you found the baby!</p>
+        <p class="photo-prompt">🦝 Mama needs proof! Take a photo to unlock the next stop.</p>
         <img id="photo-preview-img" class="photo-preview-img" src="" alt="proof"/>
         <p id="photo-ok-msg" class="photo-ok">She believes you!</p>
         <div id="photo-actions" class="photo-actions">
           <button class="btn btn-primary" style="flex:1" id="btn-take-photo">📸 Take Photo</button>
-          <button class="btn-skip" onclick="skipPhoto()">skip</button>
         </div>
         <input type="file" id="photo-input" accept="image/*" capture="environment" style="display:none"/>
       </div>
@@ -1070,18 +1069,47 @@ function moveRaccoon(toLatLng, onDone) {
 function enableTap(n, toLatLng) {
   tapFn = () => {
     if (isDone(n)) return;
+
+    if (n === 5 && navigator.geolocation) {
+      // Wiggle while checking location
+      const el = rrEl();
+      if (el) { el.className = 'rr-icon rr-wiggle'; setTimeout(() => { if (el) el.className = 'rr-icon rr-idle'; }, 500); }
+      navigator.geolocation.getCurrentPosition(
+        pos => {
+          const dist = distanceMeters(pos.coords.latitude, pos.coords.longitude, STOPS[5].lat, STOPS[5].lng);
+          if (dist <= 500) {
+            doMove(n, toLatLng);
+          } else {
+            // Not home yet, re-enable tap and show message
+            enableTap(n, toLatLng);
+            const box = document.getElementById('hint-box');
+            box.textContent = 'You\'re not home yet! Head home first, then tap.';
+            box.classList.add('show');
+            setTimeout(() => box.classList.remove('show'), 4000);
+          }
+        },
+        () => doMove(n, toLatLng), // geo error: allow through
+        { timeout: 8000, maximumAge: 30000 }
+      );
+      return;
+    }
+
     raccoonMark.off('click', tapFn);
     tapFn = null;
-
-    const el = rrEl();
-    if (el) {
-      el.className = 'rr-icon rr-wiggle';
-      setTimeout(() => moveRaccoon(toLatLng, () => showAddress(n, true)), 420);
-    } else {
-      moveRaccoon(toLatLng, () => showAddress(n, true));
-    }
+    doMove(n, toLatLng);
   };
   raccoonMark.on('click', tapFn);
+}
+
+function doMove(n, toLatLng) {
+  if (tapFn) { raccoonMark.off('click', tapFn); tapFn = null; }
+  const el = rrEl();
+  if (el) {
+    el.className = 'rr-icon rr-wiggle';
+    setTimeout(() => moveRaccoon(toLatLng, () => showAddress(n, true)), 420);
+  } else {
+    moveRaccoon(toLatLng, () => showAddress(n, true));
+  }
 }
 
 /* ============================================================
@@ -1107,13 +1135,6 @@ function showAddress(n, animate) {
   }
 
   initPhotoSection(n);
-
-  const stop = STOPS[n];
-  if (stop.nextHint) {
-    setTimeout(() => {
-      document.getElementById('next-hint').textContent = stop.nextHint;
-    }, animate ? 700 : 0);
-  }
 }
 
 function copyAddr(text) {
@@ -1206,11 +1227,14 @@ function initPhotoSection(n) {
   const act = document.getElementById('photo-actions');
   img.style.display = 'none'; ok.style.display = 'none'; act.style.display = 'flex';
   getPhoto(n).then(dataUrl => {
-    if (dataUrl) { img.src = dataUrl; img.style.display = 'block'; ok.style.display = 'block'; act.style.display = 'none'; }
+    if (dataUrl) {
+      img.src = dataUrl; img.style.display = 'block';
+      ok.style.display = 'block'; act.style.display = 'none';
+      // Photo already on file — reveal next-hint immediately
+      const stop = STOPS[n];
+      if (stop && stop.nextHint) document.getElementById('next-hint').textContent = stop.nextHint;
+    }
   });
-}
-function skipPhoto() {
-  document.getElementById('photo-section').style.display = 'none';
 }
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-take-photo').onclick = () => document.getElementById('photo-input').click();
@@ -1225,6 +1249,9 @@ document.addEventListener('DOMContentLoaded', () => {
       const act = document.getElementById('photo-actions');
       img.src = compressed; img.style.display = 'block';
       ok.style.display = 'block'; act.style.display = 'none';
+      // Unlock next-hint now that proof is submitted
+      const stop = STOPS[currentStopN];
+      if (stop && stop.nextHint) document.getElementById('next-hint').textContent = stop.nextHint;
       e.target.value = '';
     };
     reader.readAsDataURL(file);
