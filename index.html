@@ -387,12 +387,17 @@
     .final-wrap { display: flex; flex-direction: column; align-items: center; gap: 16px; max-width: 320px; }
     .final-raccoon {
       font-size: 88px;
-      animation: final-pop 0.8s cubic-bezier(0.34,1.56,0.64,1) both;
+      animation: final-pop 0.8s cubic-bezier(0.34,1.56,0.64,1) both,
+                 final-dance 0.65s ease-in-out 1s infinite;
     }
     @keyframes final-pop {
       from { transform: scale(0) rotate(-25deg); opacity: 0; }
       60%  { transform: scale(1.2) rotate(8deg); }
       100% { transform: scale(1)   rotate(0deg); opacity: 1; }
+    }
+    @keyframes final-dance {
+      0%,100% { transform: rotate(-10deg) scale(1.05); }
+      50%     { transform: rotate(10deg)  scale(1.1); }
     }
     .final-title {
       font-size: 30px; font-weight: 800;
@@ -404,15 +409,22 @@
       padding: 18px; box-shadow: var(--shadow);
       transition: background-color 0.8s, box-shadow 0.8s;
     }
-    .final-wallet {
-      font-size: 56px;
-      animation: wallet-float 2.2s ease-in-out 0.4s infinite alternate;
+    /* Photo feature */
+    .photo-section { margin-top: 12px; }
+    .photo-prompt { font-size: 13px; color: var(--text-muted); margin-bottom: 8px; text-align: center; }
+    .photo-preview-img {
+      width: 100%; border-radius: 12px; display: none;
+      margin-bottom: 8px; max-height: 200px; object-fit: cover;
     }
-    @keyframes wallet-float {
-      from { transform: translateY(0)   rotate(-5deg); }
-      to   { transform: translateY(-14px) rotate(5deg); }
-    }
-    .final-msg { font-size: 16px; font-weight: 700; color: var(--accent); }
+    .photo-ok { font-size: 13px; color: #10b981; font-weight: 700; text-align: center; margin-bottom: 8px; display: none; }
+    .photo-actions { display: flex; gap: 10px; }
+    .btn-skip { background: none; border: none; font-size: 12px; color: var(--text-muted); text-decoration: underline; align-self: center; padding: 4px; }
+
+    /* Collage */
+    .collage-section { width: 100%; }
+    .collage-loading { font-size: 14px; color: var(--text-muted); text-align: center; padding: 20px 0; }
+    #collage-canvas { width: 100%; border-radius: 12px; display: none; }
+    .btn-download { margin-top: 10px; width: 100%; display: none; text-align: center; }
 
     /* ============================================================
        CONFETTI
@@ -504,6 +516,16 @@
         <button class="btn btn-secondary" id="btn-copy">📋 Copy</button>
         <a      class="btn btn-primary"   id="btn-maps" target="_blank" rel="noopener">🗺 Maps</a>
       </div>
+      <div id="photo-section" class="photo-section">
+        <p class="photo-prompt">🦝 Mama Raccoon needs proof you found the baby!</p>
+        <img id="photo-preview-img" class="photo-preview-img" src="" alt="proof"/>
+        <p id="photo-ok-msg" class="photo-ok">She believes you!</p>
+        <div id="photo-actions" class="photo-actions">
+          <button class="btn btn-primary" style="flex:1" id="btn-take-photo">📸 Take Photo</button>
+          <button class="btn-skip" onclick="skipPhoto()">skip</button>
+        </div>
+        <input type="file" id="photo-input" accept="image/*" capture="environment" style="display:none"/>
+      </div>
       <div class="next-hint" id="next-hint"></div>
       <button class="btn-hint" id="btn-hint" onclick="requestHint()">🔍 Need a hint?</button>
       <div class="hint-box" id="hint-box"></div>
@@ -517,6 +539,11 @@
       <div class="final-title">You made it home.</div>
       <div class="final-story" id="final-story">
         You did all of that. Every single stop. Your wallet is right here and everything is in it, I only borrowed it I promise. I put it back mostly in order. My babies are home, I am relieved beyond words, and I owe you a very large debt of gratitude. There is something here for you. Consider it a thank you from a mama who made a very questionable decision this morning and somehow got away with it. 🦝
+      </div>
+      <div class="collage-section">
+        <p id="collage-loading" class="collage-loading">Building your adventure collage... 🎨</p>
+        <canvas id="collage-canvas"></canvas>
+        <a id="collage-download" class="btn btn-primary btn-download" download="our-adventure.jpg">⬇️ Save Collage</a>
       </div>
     </div>
   </section>
@@ -640,7 +667,7 @@ function route() {
   if (p.has('reset')) {
     ['stop_1_done','stop_2_done','stop_3_done','stop_4_done','stop_5_done','intro_seen','theme']
       .forEach(k => LS.remove(k));
-    location.replace('./');
+    clearPhotos().finally(() => location.replace('./'));
     return;
   }
 
@@ -747,9 +774,20 @@ function beginHunt() {
   location.href = '?stop=1';
 }
 
+let _audioCtx = null;
+function getAudio() {
+  if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return _audioCtx;
+}
+// Unlock AudioContext on first user touch so later beeps work on iOS
+document.addEventListener('touchstart', () => {
+  try { const c = getAudio(); if (c.state === 'suspended') c.resume(); } catch(e) {}
+}, { once: true, passive: true });
+
 function beep(freq, type, vol, dur) {
   try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const ctx = getAudio();
+    if (ctx.state === 'suspended') { ctx.resume().catch(() => {}); return; }
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.type = type;
@@ -1060,6 +1098,8 @@ function showAddress(n, animate) {
     card.classList.add('reveal');
   }
 
+  initPhotoSection(n);
+
   const stop = STOPS[n];
   if (stop.nextHint) {
     setTimeout(() => {
@@ -1090,6 +1130,166 @@ function copyAddr(text) {
 }
 
 /* ============================================================
+   PHOTOS
+============================================================ */
+function openPhotoDb() {
+  return new Promise((res, rej) => {
+    const r = indexedDB.open('rsh_photos', 1);
+    r.onupgradeneeded = e => e.target.result.createObjectStore('photos');
+    r.onsuccess = e => res(e.target.result);
+    r.onerror = rej;
+  });
+}
+function savePhoto(n, dataUrl) {
+  return openPhotoDb().then(db => new Promise((res, rej) => {
+    const tx = db.transaction('photos', 'readwrite');
+    tx.objectStore('photos').put(dataUrl, n);
+    tx.oncomplete = res; tx.onerror = rej;
+  }));
+}
+function getPhoto(n) {
+  return openPhotoDb().then(db => new Promise(res => {
+    const tx = db.transaction('photos', 'readonly');
+    const r = tx.objectStore('photos').get(n);
+    r.onsuccess = () => res(r.result || null);
+    r.onerror = () => res(null);
+  }));
+}
+function getAllPhotos() {
+  return openPhotoDb().then(db => new Promise(res => {
+    const out = {};
+    const tx = db.transaction('photos', 'readonly');
+    const r = tx.objectStore('photos').openCursor();
+    r.onsuccess = e => {
+      const c = e.target.result;
+      if (c) { out[c.key] = c.value; c.continue(); } else res(out);
+    };
+    r.onerror = () => res({});
+  }));
+}
+function clearPhotos() {
+  return openPhotoDb().then(db => new Promise(res => {
+    const tx = db.transaction('photos', 'readwrite');
+    tx.objectStore('photos').clear();
+    tx.oncomplete = res; tx.onerror = res;
+  }));
+}
+function compressPhoto(dataUrl) {
+  return new Promise(res => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, 900 / Math.max(img.width, img.height));
+      const c = document.createElement('canvas');
+      c.width = img.width * scale; c.height = img.height * scale;
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      res(c.toDataURL('image/jpeg', 0.82));
+    };
+    img.onerror = () => res(dataUrl);
+    img.src = dataUrl;
+  });
+}
+function initPhotoSection(n) {
+  const sec = document.getElementById('photo-section');
+  if (!sec) return;
+  if (n === 5) { sec.style.display = 'none'; return; }
+  sec.style.display = '';
+  const img = document.getElementById('photo-preview-img');
+  const ok  = document.getElementById('photo-ok-msg');
+  const act = document.getElementById('photo-actions');
+  img.style.display = 'none'; ok.style.display = 'none'; act.style.display = 'flex';
+  getPhoto(n).then(dataUrl => {
+    if (dataUrl) { img.src = dataUrl; img.style.display = 'block'; ok.style.display = 'block'; act.style.display = 'none'; }
+  });
+}
+function skipPhoto() {
+  document.getElementById('photo-section').style.display = 'none';
+}
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('btn-take-photo').onclick = () => document.getElementById('photo-input').click();
+  document.getElementById('photo-input').onchange = async e => {
+    const file = e.target.files[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async ev => {
+      const compressed = await compressPhoto(ev.target.result);
+      await savePhoto(currentStopN, compressed);
+      const img = document.getElementById('photo-preview-img');
+      const ok  = document.getElementById('photo-ok-msg');
+      const act = document.getElementById('photo-actions');
+      img.src = compressed; img.style.display = 'block';
+      ok.style.display = 'block'; act.style.display = 'none';
+      e.target.value = '';
+    };
+    reader.readAsDataURL(file);
+  };
+});
+
+function rrClip(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x+r, y); ctx.lineTo(x+w-r, y);
+  ctx.quadraticCurveTo(x+w, y, x+w, y+r);
+  ctx.lineTo(x+w, y+h-r);
+  ctx.quadraticCurveTo(x+w, y+h, x+w-r, y+h);
+  ctx.lineTo(x+r, y+h);
+  ctx.quadraticCurveTo(x, y+h, x, y+h-r);
+  ctx.lineTo(x, y+r);
+  ctx.quadraticCurveTo(x, y, x+r, y);
+  ctx.closePath();
+}
+async function buildCollage() {
+  const photos = await getAllPhotos();
+  const canvas = document.getElementById('collage-canvas');
+  const ctx = canvas.getContext('2d');
+  canvas.width = 800; canvas.height = 860;
+  ctx.fillStyle = '#fff7ed'; ctx.fillRect(0, 0, 800, 860);
+
+  ctx.fillStyle = '#f97316';
+  ctx.font = 'bold 32px system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('Our Adventure  🦝', 400, 52);
+
+  const cells = [
+    { x: 20,  y: 75,  n: 1, label: 'Salado Creek' },
+    { x: 420, y: 75,  n: 2, label: 'Munchies' },
+    { x: 20,  y: 455, n: 3, label: 'Wildlife Ranch' },
+    { x: 420, y: 455, n: 4, label: 'Love Lock Bridge' }
+  ];
+  const W = 360, H = 360;
+
+  for (const { x, y, n, label } of cells) {
+    const dataUrl = photos[n];
+    if (dataUrl) {
+      await new Promise(resolve => {
+        const img = new Image();
+        img.onload = () => {
+          const iA = img.width / img.height, bA = W / H;
+          let sx, sy, sw, sh;
+          if (iA > bA) { sh = img.height; sw = sh * bA; sx = (img.width-sw)/2; sy = 0; }
+          else { sw = img.width; sh = sw/bA; sx = 0; sy = (img.height-sh)/2; }
+          ctx.save(); rrClip(ctx, x, y, W, H, 12); ctx.clip();
+          ctx.drawImage(img, sx, sy, sw, sh, x, y, W, H);
+          ctx.restore(); resolve();
+        };
+        img.onerror = resolve; img.src = dataUrl;
+      });
+    } else {
+      ctx.fillStyle = '#e5e7eb'; rrClip(ctx, x, y, W, H, 12); ctx.fill();
+      ctx.fillStyle = '#9ca3af'; ctx.font = '72px sans-serif';
+      ctx.textAlign = 'center'; ctx.fillText('📷', x+W/2, y+H/2+25);
+    }
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.fillRect(x, y+H-34, W, 34);
+    ctx.fillStyle = 'white'; ctx.font = 'bold 14px system-ui';
+    ctx.textAlign = 'center'; ctx.fillText(label, x+W/2, y+H-12);
+  }
+
+  canvas.style.display = 'block';
+  const dl = document.getElementById('collage-download');
+  dl.href = canvas.toDataURL('image/jpeg', 0.92);
+  dl.style.display = 'block';
+  document.getElementById('collage-loading').style.display = 'none';
+}
+
+/* ============================================================
    FINAL SCREEN
 ============================================================ */
 function startFinal() {
@@ -1098,6 +1298,7 @@ function startFinal() {
   setTimeout(burst, 350);
   setTimeout(burst, 1100);
   setTimeout(burst, 2000);
+  buildCollage();
 }
 
 function burst() {
