@@ -273,7 +273,7 @@
       flex-shrink: 0;
       transition: background-color 0.8s ease, border-color 0.8s ease;
     }
-    .hunt-map { width: 100%; height: auto; display: block; max-height: 220px; }
+    .hunt-map { width: 100%; height: auto; display: block; max-height: 280px; }
 
     /* Raccoon SVG marker */
     .raccoon-marker {
@@ -372,6 +372,29 @@
     }
     html[data-theme="playful"] .btn-secondary { border-color: rgba(0,0,0,0.1); }
     .next-hint { margin-top: 11px; font-size: 13px; color: var(--text-muted); text-align: center; }
+
+    /* Hint feature */
+    .btn-hint {
+      margin-top: 10px; width: 100%; padding: 11px; border-radius: 14px;
+      font-size: 14px; font-weight: 700; border: 1.5px dashed var(--text-muted);
+      background: transparent; color: var(--text-muted);
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+      transition: border-color 0.2s, color 0.2s;
+    }
+    .btn-hint:active { opacity: 0.7; }
+    .hint-box {
+      display: none; margin-top: 10px; padding: 12px 14px;
+      background: var(--surface2); border-radius: 12px;
+      border-left: 3px solid var(--accent);
+      font-size: 13px; line-height: 1.55; color: var(--text);
+    }
+    .hint-box.show { display: block; animation: card-up 0.35s ease both; }
+
+    /* Trail lines */
+    .trail-line {
+      stroke: #f97316; stroke-width: 2.5; fill: none;
+      stroke-linecap: round; opacity: 0.85;
+    }
 
     /* ============================================================
        FINAL SCREEN
@@ -605,6 +628,8 @@
         <a      class="btn btn-primary"   id="btn-maps" target="_blank" rel="noopener">🗺 Maps</a>
       </div>
       <div class="next-hint" id="next-hint"></div>
+      <button class="btn-hint" id="btn-hint" onclick="requestHint()">🔍 Need a hint?</button>
+      <div class="hint-box" id="hint-box"></div>
     </div>
   </section>
 
@@ -636,42 +661,51 @@ const STOPS = [
   {
     id: 1,
     label: 'Salado Creek Greenway',
-    story: 'Okay. I know how this looks. I took the wallet. I\'m not proud of it. But I saw you two and I panicked — my babies scattered and I don\'t know where they went and you seemed like the kind of humans who would help. Please. PLEASE. The first one ran this way, toward the creek. I saw them waddling along the trail before I lost sight. Go find them. I\'ll explain everything later. Sorry about the wallet. 🌿',
+    story: 'Okay. I know how this looks. I took the wallet. I\'m not proud of it. But I saw you two and I panicked. My babies scattered and I don\'t know where they went and you seemed like the kind of humans who would help.<br><br>Please. The first one ran this way, toward the creek. I saw them waddling along the trail before I lost sight. Go find them. I\'ll explain everything later. Sorry about the wallet. 🌿',
     address: 'Salado Creek Greenway near Eisenhower Park, San Antonio, TX',
     mapQ: 'Salado+Creek+Greenway+near+Eisenhower+Park+San+Antonio+TX',
-    fromX: HOME_X, fromY: HOME_Y, // raccoon starts at home
+    lat: 29.5743, lng: -98.5657,
+    hint: 'Look under the concrete bridge. Check along the ledge where the bridge meets the embankment on the side closest to the trail.',
+    fromX: HOME_X, fromY: HOME_Y,
     mx: 30, my: 55,
-    nextHint: 'Clue #2 is waiting — follow the scent! 🌮'
+    nextHint: 'Clue #2 is waiting, follow the scent! 🌮'
   },
   {
     id: 2,
     label: 'Munchies',
-    story: 'You found one! Bless you. Okay there are more. My second baby — the chunky one — followed her nose and I\'m almost certain she ended up near food. She does this. She has always done this. I have told her a hundred times that we do not just walk into human establishments but she does not listen. She is just like her father. Check here. Apologize on my behalf if necessary. 🌮',
+    story: 'You found one! Bless you. Okay there are more. My second baby, the chunky one, followed her nose and I\'m almost certain she ended up near food. She does this. She has always done this. I have told her a hundred times that we do not just walk into human establishments but she does not listen. She is just like her father. Check here. Apologize on my behalf if necessary. 🌮',
     address: '923 N Loop 1604 E #109, San Antonio, TX 78232',
     mapQ: '923+N+Loop+1604+E+%23109+San+Antonio+TX+78232',
-    fromX: 30, fromY: 55, // raccoon starts at stop 1
+    lat: 29.6033, lng: -98.4619,
+    hint: 'You know this parking lot. You have been here before under very different circumstances. Think about that one time you were really not feeling well here. Check the bushes near that spot.',
+    fromX: 30, fromY: 55,
     mx: 62, my: 28,
     nextHint: 'Fueled up? Onward to Stop 3! 🦌'
   },
   {
     id: 3,
     label: 'Natural Bridge Wildlife Ranch',
-    story: 'The third one said, and I quote, "Mama I want to meet the big animals." And then he LEFT. Just waddled off toward the giant cousins with zero fear and zero sense. I don\'t know where I went wrong. He should be somewhere in there, probably trying to make friends with a giraffe. Please retrieve him. Gently. He spooks easy unless he doesn\'t, in which case good luck. 🦒',
+    story: 'The third one has always called the animals her friends. All of them. Every single one. She talks about the deer like she grew up with them. The big ones, the small ones, she does not discriminate. She said she was going to go visit them and honestly I did not take her seriously until she was already gone. She is out there right now having the absolute time of her life. She is not scared. But she knows what to do if she ever is. I made sure of that. Go find her. 🦒',
     address: '26515 Natural Bridge Caverns Rd, San Antonio, TX 78266',
     mapQ: '26515+Natural+Bridge+Caverns+Rd+San+Antonio+TX+78266',
-    fromX: 62, fromY: 28, // raccoon starts at stop 2
+    lat: 29.7267, lng: -98.3419,
+    skipGeo: true,
+    hint: 'I always told them the same thing. If you are ever scared, if you are ever lost, find the human you trust the most and stay close to their car. She listened to every word.',
+    fromX: 62, fromY: 28,
     mx: 78, my: 18,
     nextHint: 'Almost there! Stop 4 is a romantic one 💕'
   },
   {
     id: 4,
     label: 'Love Lock Bridge',
-    story: 'Last one. My smallest. She\'s a romantic, this one — always running off to pretty places. I think she came here because she saw the locks and thought it was the most magical thing in the world. She\'s not wrong. Before you grab her — I left something here for you. A little thank you. From me. For helping a mama who made a very chaotic choice on a very stressful day. You can have the wallet back too. Mostly intact. 🔒💕',
+    story: 'Last one. My smallest. She\'s a romantic, this one. Always running off to pretty places. I think she came here because she saw the locks and thought it was the most magical thing in the world. She\'s not wrong. Before you grab her, I left something here for you. A little thank you. From me. For helping a mama who made a very chaotic choice on a very stressful day. You can have the wallet back too. Mostly intact. 🔒💕',
     address: 'Love Lock Bridge, Main Plaza, San Antonio, TX',
     mapQ: 'Main+Plaza+San+Antonio+TX',
-    fromX: 78, fromY: 18, // raccoon starts at stop 3
+    lat: 29.4241, lng: -98.4937,
+    hint: 'It is not going to be right in front of you. You are going to have to really look. Get low. Move things. Check where most people would not bother checking.',
+    fromX: 78, fromY: 18,
     mx: 48, my: 62,
-    nextHint: 'Last stop — head home! 🏠🎉'
+    nextHint: 'Last stop, head home! 🏠🎉'
   },
   {
     id: 5,
@@ -862,7 +896,109 @@ function scramble(el, final, dur) {
 /* ============================================================
    STOP SCREEN
 ============================================================ */
+let currentStopN = 1;
+const sessionTrails = new Set(); // only trails drawn this play session
+
+/* ============================================================
+   TRAIL DRAWING
+============================================================ */
+function getTrailLayer() {
+  let layer = document.getElementById('trail-layer');
+  if (!layer) {
+    layer = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    layer.id = 'trail-layer';
+    document.getElementById('hunt-map').appendChild(layer);
+  }
+  return layer;
+}
+
+function clearTrails() {
+  const layer = getTrailLayer();
+  layer.innerHTML = '';
+}
+
+function drawTrail(fromPctX, fromPctY, toPctX, toPctY, animate) {
+  const layer = getTrailLayer();
+  const x1 = (fromPctX / 100) * 400;
+  const y1 = (fromPctY / 100) * 300;
+  const x2 = (toPctX / 100) * 400;
+  const y2 = (toPctY / 100) * 300;
+  const len = Math.hypot(x2 - x1, y2 - y1);
+
+  const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+  line.setAttribute('x1', x1); line.setAttribute('y1', y1);
+  line.setAttribute('x2', x2); line.setAttribute('y2', y2);
+  line.setAttribute('class', 'trail-line');
+
+  if (animate) {
+    line.setAttribute('stroke-dasharray', len + ' ' + len);
+    line.style.strokeDashoffset = len;
+    line.style.transition = 'stroke-dashoffset 1.1s ease';
+    layer.appendChild(line);
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      line.style.strokeDashoffset = '0';
+      setTimeout(() => {
+        line.setAttribute('stroke-dasharray', '7 5');
+        line.style.strokeDashoffset = '0';
+        line.style.transition = '';
+      }, 1200);
+    }));
+  } else {
+    line.setAttribute('stroke-dasharray', '7 5');
+    line.style.strokeDashoffset = '0';
+    layer.appendChild(line);
+  }
+}
+
+function distanceMeters(lat1, lng1, lat2, lng2) {
+  const R = 6371000;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+            Math.sin(dLng/2) * Math.sin(dLng/2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function requestHint() {
+  const stop = STOPS[currentStopN];
+  const btn = document.getElementById('btn-hint');
+  const box = document.getElementById('hint-box');
+
+  const revealHint = () => {
+    box.textContent = stop.hint;
+    box.classList.add('show');
+    btn.style.display = 'none';
+  };
+
+  if (stop.skipGeo || !navigator.geolocation) {
+    revealHint();
+    return;
+  }
+
+  btn.textContent = '📡 Checking your location...';
+  btn.disabled = true;
+
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      const dist = distanceMeters(pos.coords.latitude, pos.coords.longitude, stop.lat, stop.lng);
+      if (dist <= 500) {
+        revealHint();
+      } else {
+        btn.textContent = '🔍 Need a hint?';
+        btn.disabled = false;
+        box.textContent = 'You need to be at the location first! Get closer and try again.';
+        box.classList.add('show');
+        setTimeout(() => { box.classList.remove('show'); }, 3000);
+      }
+    },
+    revealHint,
+    { timeout: 8000, maximumAge: 30000 }
+  );
+}
+
 function mountStop(n) {
+  currentStopN = n;
   const stop = STOPS[n];
   showScreen('screen-stop');
 
@@ -877,7 +1013,7 @@ function mountStop(n) {
   document.getElementById('stop-num').textContent = 'Stop ' + n + ' of 4';
 
   // Story
-  document.getElementById('story-text').textContent = stop.story;
+  document.getElementById('story-text').innerHTML = stop.story;
 
   // Reset card
   const card = document.getElementById('addr-card');
@@ -888,11 +1024,27 @@ function mountStop(n) {
   document.getElementById('addr-label').textContent = '📍 ' + stop.label;
   document.getElementById('addr-text').textContent  = stop.address;
   document.getElementById('next-hint').textContent  = '';
-  document.getElementById('btn-maps').href = 'https://maps.google.com/?q=' + stop.mapQ;
-
+  const btnMaps = document.getElementById('btn-maps');
   const btnCopy = document.getElementById('btn-copy');
-  btnCopy.textContent = '📋 Copy';
-  btnCopy.onclick = () => copyAddr(stop.address);
+  if (stop.mapQ) {
+    btnMaps.href = 'https://maps.google.com/?q=' + stop.mapQ;
+    btnMaps.style.display = '';
+    btnCopy.style.display = '';
+    btnCopy.textContent = '📋 Copy';
+    btnCopy.onclick = () => copyAddr(stop.address);
+  } else {
+    btnMaps.style.display = 'none';
+    btnCopy.style.display = 'none';
+  }
+
+  // Reset hint button
+  const hintBtn = document.getElementById('btn-hint');
+  const hintBox = document.getElementById('hint-box');
+  hintBtn.textContent = '🔍 Need a hint?';
+  hintBtn.disabled = false;
+  hintBtn.style.display = '';
+  hintBox.textContent = '';
+  hintBox.classList.remove('show');
 
   // Reset tap hint
   document.getElementById('tap-hint').classList.remove('gone');
@@ -902,6 +1054,19 @@ function mountStop(n) {
     const m = document.getElementById('raccoon-marker');
     if (m) m.removeEventListener('click', tapFn);
     tapFn = null;
+  }
+
+  // Draw all prior stop trails as history (she had to complete them to get here)
+  clearTrails();
+  for (let i = 1; i < n; i++) {
+    sessionTrails.add(i);
+    const s = STOPS[i];
+    drawTrail(s.fromX, s.fromY, s.mx, s.my, false);
+  }
+  // If current stop already done this session, show its trail too
+  if (sessionTrails.has(n)) {
+    const s = STOPS[n];
+    drawTrail(s.fromX, s.fromY, s.mx, s.my, false);
   }
 
   if (isDone(n)) {
@@ -993,6 +1158,9 @@ function enableTap(n, toPctX, toPctY) {
 ============================================================ */
 function showAddress(n, animate) {
   markDone(n);
+  sessionTrails.add(n);
+  const s = STOPS[n];
+  drawTrail(s.fromX, s.fromY, s.mx, s.my, animate);
 
   document.getElementById('tap-hint').classList.add('gone');
 
