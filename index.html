@@ -962,6 +962,12 @@ function mountStop(n) {
   // Init map once, then set up trails + raccoon
   initMap();
 
+  const fromLL = n === 1 ? HOME : [STOPS[n-1].lat, STOPS[n-1].lng];
+  const toLL   = [stop.lat, stop.lng];
+
+  // Always center on the raccoon's starting position for this stop
+  leafMap.setView(fromLL, leafMap.getZoom(), { animate: false });
+
   // Draw history trails (all stops before current)
   clearTrails();
   for (let i = 1; i < n; i++) {
@@ -969,9 +975,6 @@ function mountStop(n) {
     drawTrail([STOPS[i].lat, STOPS[i].lng], false);
   }
   if (sessionTrails.has(n)) drawTrail([stop.lat, stop.lng], false);
-
-  const fromLL = n === 1 ? HOME : [STOPS[n-1].lat, STOPS[n-1].lng];
-  const toLL   = [stop.lat, stop.lng];
 
   if (isDone(n)) {
     placeRaccoon(toLL);
