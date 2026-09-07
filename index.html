@@ -805,8 +805,8 @@ function initMap() {
     doubleClickZoom: false, boxZoom: false, keyboard: false
   });
 
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png', {
-    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> © <a href="https://carto.com/">CARTO</a>',
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
     maxZoom: 14
   }).addTo(leafMap);
 
@@ -966,7 +966,7 @@ function mountStop(n) {
   const toLL   = [stop.lat, stop.lng];
 
   // Always center on the raccoon's starting position for this stop
-  leafMap.setView(fromLL, leafMap.getZoom(), { animate: false });
+  leafMap.setView(fromLL, 10, { animate: false });
 
   // Draw history trails (all stops before current)
   clearTrails();
