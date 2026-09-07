@@ -1004,10 +1004,12 @@ function moveRaccoon(toLatLng, onDone) {
   const step = () => {
     const t = Math.min((Date.now() - start) / dur, 1);
     const e = t < 0.5 ? 2*t*t : -1+(4-2*t)*t;
-    raccoonMark.setLatLng([
+    const pos = [
       from.lat + (toLatLng[0] - from.lat) * e,
       from.lng + (toLatLng[1] - from.lng) * e
-    ]);
+    ];
+    raccoonMark.setLatLng(pos);
+    leafMap.setView(pos, leafMap.getZoom(), { animate: false });
     if (t < 1) requestAnimationFrame(step);
     else {
       if (el) el.className = 'rr-icon rr-idle';
