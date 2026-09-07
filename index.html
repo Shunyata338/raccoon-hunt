@@ -817,9 +817,8 @@ function initMap() {
     iconSize: [36,36], iconAnchor: [18,30], className: ''
   }), zIndexOffset: 1000 }).addTo(leafMap);
 
-  // Fit bounds to all stops + home
-  const allPts = [HOME, ...STOPS.slice(1,5).map(s => [s.lat, s.lng])];
-  leafMap.fitBounds(allPts, { padding: [28, 28] });
+  // Center on San Antonio showing the 1604 loop
+  leafMap.setView([29.495, -98.510], 11);
 }
 
 function rrEl() { return document.getElementById('rr-el'); }
