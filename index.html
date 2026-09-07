@@ -514,13 +514,10 @@
   <section id="screen-final" class="screen">
     <div class="final-wrap">
       <div class="final-raccoon">🦝</div>
-      <div class="final-title">You Found Everything!</div>
+      <div class="final-title">You made it home.</div>
       <div class="final-story" id="final-story">
-        Mama Raccoon had quite the adventure — and so did you! She borrowed your wallet to leave
-        breadcrumbs all across San Antonio. Now she's waiting at home with it… and something extra special. 🎁
+        I cannot believe you did all of that for me. I really cannot. Your wallet is right here, everything is in it, I only borrowed it I promise. But before I give it back I need you to know that I have been sitting here all day thinking about how lucky I am. Not just that you found my babies. That you exist. That I get to know you. There is something here for you. Go find it. You have more than earned it. 🦝
       </div>
-      <div class="final-wallet">👜✨</div>
-      <div class="final-msg">Your wallet (and a surprise) is waiting at home!</div>
     </div>
   </section>
 
@@ -587,11 +584,12 @@ const STOPS = [
   {
     id: 5,
     label: 'Home',
-    story: null,
+    story: 'You found them. All four of them. I have been sitting here listening for the sound of the door and I cannot stop smiling. Your wallet is here. Everything is here. I just have one more thing I have been holding onto for a while now, waiting for the right moment. I think this is it. Come inside. 🏠',
     address: null,
     mapQ: null,
-    fromX: HOME_X, fromY: HOME_Y,
-    mx: HOME_X, my: HOME_Y,
+    lat: 29.4460, lng: -98.5660,
+    skipGeo: true,
+    hint: null,
     nextHint: null
   }
 ];
@@ -661,7 +659,7 @@ function route() {
   if (req === 5) {
     currentStop = 5;
     setTheme('playful');
-    startFinal();
+    mountStop(5);
     return;
   }
 
@@ -917,8 +915,6 @@ function mountStop(n) {
     d.className = 'prog-dot ' + (i < n || isDone(i) ? 'done' : i === n ? 'current' : 'future');
     dots.appendChild(d);
   }
-  document.getElementById('stop-num').textContent = 'Stop ' + n + ' of 4';
-
   // Story
   document.getElementById('story-text').innerHTML = stop.story;
 
@@ -944,14 +940,17 @@ function mountStop(n) {
     btnCopy.style.display = 'none';
   }
 
-  // Reset hint button
+  // Reset hint button (hidden on final stop)
   const hintBtn = document.getElementById('btn-hint');
   const hintBox = document.getElementById('hint-box');
   hintBtn.textContent = '🔍 Need a hint?';
   hintBtn.disabled = false;
-  hintBtn.style.display = '';
+  hintBtn.style.display = n === 5 ? 'none' : '';
   hintBox.textContent = '';
   hintBox.classList.remove('show');
+
+  // Update progress label
+  document.getElementById('stop-num').textContent = n === 5 ? 'Almost home!' : 'Stop ' + n + ' of 4';
 
   // Reset tap hint
   document.getElementById('tap-hint').classList.remove('gone');
@@ -1048,6 +1047,11 @@ function showAddress(n, animate) {
   drawTrail([STOPS[n].lat, STOPS[n].lng], animate);
 
   document.getElementById('tap-hint').classList.add('gone');
+
+  if (n === 5) {
+    setTimeout(startFinal, animate ? 800 : 0);
+    return;
+  }
 
   const card = document.getElementById('addr-card');
   card.classList.remove('hidden');
