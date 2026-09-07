@@ -2,7 +2,7 @@
 <html lang="en" data-theme="serious">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#0a0a0f" id="meta-theme-color">
@@ -387,8 +387,7 @@
     .final-wrap { display: flex; flex-direction: column; align-items: center; gap: 16px; max-width: 320px; }
     .final-raccoon {
       font-size: 88px;
-      animation: final-pop 0.8s cubic-bezier(0.34,1.56,0.64,1) both,
-                 final-dance 0.65s ease-in-out 1s infinite;
+      animation: final-pop 0.8s cubic-bezier(0.34,1.56,0.64,1) both;
     }
     @keyframes final-pop {
       from { transform: scale(0) rotate(-25deg); opacity: 0; }
@@ -398,6 +397,14 @@
     @keyframes final-dance {
       0%,100% { transform: rotate(-10deg) scale(1.05); }
       50%     { transform: rotate(10deg)  scale(1.1); }
+    }
+    .tap-to-begin {
+      font-size: 13px; color: var(--text-muted); text-align: center;
+      animation: tap-pulse 1.5s ease-in-out infinite;
+    }
+    @keyframes tap-pulse {
+      0%,100% { opacity: 0.4; }
+      50%     { opacity: 1; }
     }
     .final-title {
       font-size: 30px; font-weight: 800;
@@ -477,6 +484,8 @@
       </div>
     </div>
 
+    <p id="tap-to-begin" class="tap-to-begin" style="display:none">Tap anywhere to start</p>
+
     <div class="raccoon-reveal" id="raccoon-reveal">
       <div class="rr-emoji">🦝</div>
       <div class="rr-title">It was Mama Raccoon!</div>
@@ -543,7 +552,7 @@
       <div class="collage-section">
         <p id="collage-loading" class="collage-loading">Building your adventure collage... 🎨</p>
         <canvas id="collage-canvas"></canvas>
-        <a id="collage-download" class="btn btn-primary btn-download" download="our-adventure.jpg">⬇️ Save Collage</a>
+        <button id="collage-download" class="btn btn-primary btn-download">📤 Save All Photos</button>
       </div>
     </div>
   </section>
@@ -714,7 +723,16 @@ function startIntro() {
     showReveal();
     return;
   }
-  runIntro();
+  // Require a tap first — this unlocks iOS audio and feels intentional
+  const ttb = document.getElementById('tap-to-begin');
+  if (ttb) ttb.style.display = '';
+  const startOnTap = () => {
+    if (ttb) ttb.style.display = 'none';
+    try { getAudio().resume(); } catch(e) {}
+    runIntro();
+  };
+  document.addEventListener('touchstart', startOnTap, { once: true, passive: true });
+  document.addEventListener('mousedown', startOnTap, { once: true });
 }
 
 function runIntro() {
@@ -1235,58 +1253,105 @@ function rrClip(ctx, x, y, w, h, r) {
   ctx.quadraticCurveTo(x, y, x+r, y);
   ctx.closePath();
 }
+
+function dataUrlToBlob(dataUrl) {
+  const [header, data] = dataUrl.split(',');
+  const mime = header.match(/:(.*?);/)[1];
+  const bin = atob(data);
+  const arr = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+  return new Blob([arr], { type: mime });
+}
+
 async function buildCollage() {
-  const photos = await getAllPhotos();
-  const canvas = document.getElementById('collage-canvas');
-  const ctx = canvas.getContext('2d');
-  canvas.width = 800; canvas.height = 860;
-  ctx.fillStyle = '#fff7ed'; ctx.fillRect(0, 0, 800, 860);
+  const loading = document.getElementById('collage-loading');
+  const canvas  = document.getElementById('collage-canvas');
+  const dlBtn   = document.getElementById('collage-download');
+  try {
+    const photos = await getAllPhotos();
+    const ctx = canvas.getContext('2d');
+    canvas.width = 720; canvas.height = 780;
+    ctx.fillStyle = '#fff7ed'; ctx.fillRect(0, 0, 720, 780);
 
-  ctx.fillStyle = '#f97316';
-  ctx.font = 'bold 32px system-ui, sans-serif';
-  ctx.textAlign = 'center';
-  ctx.fillText('Our Adventure  🦝', 400, 52);
+    ctx.fillStyle = '#f97316';
+    ctx.font = 'bold 28px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Our Adventure  🦝', 360, 46);
 
-  const cells = [
-    { x: 20,  y: 75,  n: 1, label: 'Salado Creek' },
-    { x: 420, y: 75,  n: 2, label: 'Munchies' },
-    { x: 20,  y: 455, n: 3, label: 'Wildlife Ranch' },
-    { x: 420, y: 455, n: 4, label: 'Love Lock Bridge' }
-  ];
-  const W = 360, H = 360;
+    const cells = [
+      { x: 18,  y: 64,  n: 1, label: 'Salado Creek' },
+      { x: 378, y: 64,  n: 2, label: 'Munchies' },
+      { x: 18,  y: 422, n: 3, label: 'Wildlife Ranch' },
+      { x: 378, y: 422, n: 4, label: 'Love Lock Bridge' }
+    ];
+    const W = 324, H = 324;
 
-  for (const { x, y, n, label } of cells) {
-    const dataUrl = photos[n];
-    if (dataUrl) {
-      await new Promise(resolve => {
-        const img = new Image();
-        img.onload = () => {
-          const iA = img.width / img.height, bA = W / H;
-          let sx, sy, sw, sh;
-          if (iA > bA) { sh = img.height; sw = sh * bA; sx = (img.width-sw)/2; sy = 0; }
-          else { sw = img.width; sh = sw/bA; sx = 0; sy = (img.height-sh)/2; }
-          ctx.save(); rrClip(ctx, x, y, W, H, 12); ctx.clip();
-          ctx.drawImage(img, sx, sy, sw, sh, x, y, W, H);
-          ctx.restore(); resolve();
-        };
-        img.onerror = resolve; img.src = dataUrl;
-      });
-    } else {
-      ctx.fillStyle = '#e5e7eb'; rrClip(ctx, x, y, W, H, 12); ctx.fill();
-      ctx.fillStyle = '#9ca3af'; ctx.font = '72px sans-serif';
-      ctx.textAlign = 'center'; ctx.fillText('📷', x+W/2, y+H/2+25);
+    for (const { x, y, n, label } of cells) {
+      const dataUrl = photos[n];
+      if (dataUrl) {
+        await new Promise(resolve => {
+          const img = new Image();
+          img.onload = () => {
+            const iA = img.width / img.height, bA = W / H;
+            let sx, sy, sw, sh;
+            if (iA > bA) { sh = img.height; sw = sh*bA; sx = (img.width-sw)/2; sy = 0; }
+            else         { sw = img.width;  sh = sw/bA; sx = 0; sy = (img.height-sh)/2; }
+            ctx.save(); rrClip(ctx, x, y, W, H, 12); ctx.clip();
+            ctx.drawImage(img, sx, sy, sw, sh, x, y, W, H);
+            ctx.restore(); resolve();
+          };
+          img.onerror = resolve; img.src = dataUrl;
+        });
+      } else {
+        ctx.fillStyle = '#e5e7eb'; rrClip(ctx, x, y, W, H, 12); ctx.fill();
+        ctx.fillStyle = '#9ca3af'; ctx.font = '60px sans-serif';
+        ctx.textAlign = 'center'; ctx.fillText('📷', x+W/2, y+H/2+20);
+      }
+      ctx.fillStyle = 'rgba(0,0,0,0.5)';
+      ctx.fillRect(x, y+H-30, W, 30);
+      ctx.fillStyle = 'white'; ctx.font = 'bold 13px system-ui';
+      ctx.textAlign = 'center'; ctx.fillText(label, x+W/2, y+H-9);
     }
-    ctx.fillStyle = 'rgba(0,0,0,0.5)';
-    ctx.fillRect(x, y+H-34, W, 34);
-    ctx.fillStyle = 'white'; ctx.font = 'bold 14px system-ui';
-    ctx.textAlign = 'center'; ctx.fillText(label, x+W/2, y+H-12);
-  }
 
-  canvas.style.display = 'block';
-  const dl = document.getElementById('collage-download');
-  dl.href = canvas.toDataURL('image/jpeg', 0.92);
-  dl.style.display = 'block';
-  document.getElementById('collage-loading').style.display = 'none';
+    canvas.style.display = 'block';
+    loading.style.display = 'none';
+    dlBtn.style.display = 'block';
+
+    // Wire up the share/save button
+    const photoNames = {
+      1: 'stop-1-salado-creek.jpg', 2: 'stop-2-munchies.jpg',
+      3: 'stop-3-wildlife-ranch.jpg', 4: 'stop-4-love-lock-bridge.jpg'
+    };
+    dlBtn.onclick = async () => {
+      const orig = dlBtn.textContent;
+      dlBtn.textContent = '⏳ Preparing...';
+      dlBtn.disabled = true;
+      try {
+        const files = [];
+        // collage first
+        const collageBlob = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.92));
+        files.push(new File([collageBlob], 'our-adventure-collage.jpg', { type: 'image/jpeg' }));
+        // individual photos
+        for (const [n, name] of Object.entries(photoNames)) {
+          const du = photos[n];
+          if (du) files.push(new File([dataUrlToBlob(du)], name, { type: 'image/jpeg' }));
+        }
+        if (navigator.canShare && navigator.canShare({ files })) {
+          await navigator.share({ files, title: 'Our Adventure 🦝' });
+        } else {
+          // Desktop fallback: open collage in new tab
+          const url = URL.createObjectURL(collageBlob);
+          const a = Object.assign(document.createElement('a'), { href: url, download: 'our-adventure-collage.jpg' });
+          a.click(); setTimeout(() => URL.revokeObjectURL(url), 5000);
+        }
+      } catch(e) { /* share cancelled or failed silently */ }
+      dlBtn.textContent = orig;
+      dlBtn.disabled = false;
+    };
+  } catch(err) {
+    loading.textContent = 'Could not build collage — tap the button to try again.';
+    dlBtn.style.display = 'none';
+  }
 }
 
 /* ============================================================
@@ -1299,6 +1364,14 @@ function startFinal() {
   setTimeout(burst, 1100);
   setTimeout(burst, 2000);
   buildCollage();
+  // Switch raccoon to continuous dance after the pop animation ends
+  setTimeout(() => {
+    const el = document.querySelector('.final-raccoon');
+    if (!el) return;
+    el.style.animation = 'none';
+    void el.offsetWidth; // force reflow to restart
+    el.style.animation = 'final-dance 0.65s ease-in-out infinite';
+  }, 880);
 }
 
 function burst() {
