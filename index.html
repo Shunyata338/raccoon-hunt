@@ -519,11 +519,8 @@
     </div>
 
     <div class="addr-card hidden" id="addr-card">
-      <div class="addr-label" id="addr-label">📍 Location</div>
-      <div class="addr-text"  id="addr-text">Address</div>
       <div class="addr-btns">
-        <button class="btn btn-secondary" id="btn-copy">📋 Copy</button>
-        <a      class="btn btn-primary"   id="btn-maps" target="_blank" rel="noopener">🗺 Maps</a>
+        <a class="btn btn-primary" id="btn-maps" target="_blank" rel="noopener">🗺 Open in Maps</a>
       </div>
       <div id="photo-section" class="photo-section">
         <p class="photo-prompt">🦝 Mama Raccoon needs proof you found the baby!</p>
@@ -980,20 +977,13 @@ function mountStop(n) {
   card.classList.remove('reveal');
 
   // Address content
-  document.getElementById('addr-label').textContent = '📍 ' + stop.label;
-  document.getElementById('addr-text').textContent  = stop.address;
-  document.getElementById('next-hint').textContent  = '';
+  document.getElementById('next-hint').textContent = '';
   const btnMaps = document.getElementById('btn-maps');
-  const btnCopy = document.getElementById('btn-copy');
   if (stop.mapQ) {
     btnMaps.href = 'https://maps.google.com/?q=' + stop.mapQ;
     btnMaps.style.display = '';
-    btnCopy.style.display = '';
-    btnCopy.textContent = '📋 Copy';
-    btnCopy.onclick = () => copyAddr(stop.address);
   } else {
     btnMaps.style.display = 'none';
-    btnCopy.style.display = 'none';
   }
 
   // Reset hint button (hidden on final stop)
