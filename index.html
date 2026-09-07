@@ -601,7 +601,8 @@ const STOPS = [
 ============================================================ */
 const LS = {
   get: k => localStorage.getItem('rsh_' + k),
-  set: (k, v) => localStorage.setItem('rsh_' + k, v)
+  set: (k, v) => localStorage.setItem('rsh_' + k, v),
+  remove: k => localStorage.removeItem('rsh_' + k)
 };
 const isDone = n => LS.get('stop_' + n + '_done') === '1';
 const markDone = n => LS.set('stop_' + n + '_done', '1');
@@ -635,11 +636,20 @@ function showScreen(id) {
 }
 
 function route() {
+  const p = new URLSearchParams(location.search);
+
+  // ?reset clears all progress and goes back to intro
+  if (p.has('reset')) {
+    ['stop_1_done','stop_2_done','stop_3_done','stop_4_done','stop_5_done','intro_seen','theme']
+      .forEach(k => LS.remove(k));
+    location.replace('./');
+    return;
+  }
+
   // Restore theme first
   const savedTheme = LS.get('theme');
   if (savedTheme) setTheme(savedTheme);
 
-  const p = new URLSearchParams(location.search);
   const req = parseInt(p.get('stop')) || 0;
 
   if (req === 0) {
