@@ -608,7 +608,7 @@ const STOPS = [
     address: 'Love Lock Bridge, Main Plaza, San Antonio, TX',
     mapQ: 'Main+Plaza+San+Antonio+TX',
     lat: 29.4241, lng: -98.4937,
-    hint: 'It is not going to be right in front of you. You are going to have to really look. Get low. Move things. Check where most people would not bother checking.',
+    hint: 'Find the lock with our anniversary date on it. It is there among all the others. That one is ours.',
     fromX: 78, fromY: 18,
     mx: 48, my: 62,
     nextHint: 'Last stop, head home! 🏠🎉'
@@ -921,37 +921,9 @@ function requestHint() {
   const stop = STOPS[currentStopN];
   const btn = document.getElementById('btn-hint');
   const box = document.getElementById('hint-box');
-
-  const revealHint = () => {
-    box.textContent = stop.hint;
-    box.classList.add('show');
-    btn.style.display = 'none';
-  };
-
-  if (stop.skipGeo || !navigator.geolocation) {
-    revealHint();
-    return;
-  }
-
-  btn.textContent = '📡 Checking your location...';
-  btn.disabled = true;
-
-  navigator.geolocation.getCurrentPosition(
-    pos => {
-      const dist = distanceMeters(pos.coords.latitude, pos.coords.longitude, stop.lat, stop.lng);
-      if (dist <= 500) {
-        revealHint();
-      } else {
-        btn.textContent = '🔍 Need a hint?';
-        btn.disabled = false;
-        box.textContent = 'You need to be at the location first! Get closer and try again.';
-        box.classList.add('show');
-        setTimeout(() => { box.classList.remove('show'); }, 3000);
-      }
-    },
-    revealHint,
-    { timeout: 8000, maximumAge: 30000 }
-  );
+  box.textContent = stop.hint;
+  box.classList.add('show');
+  btn.style.display = 'none';
 }
 
 function mountStop(n) {
