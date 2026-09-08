@@ -950,8 +950,15 @@ function mountStop(n) {
   // Address content
   document.getElementById('next-hint').textContent = '';
   const btnMaps = document.getElementById('btn-maps');
+  btnMaps.textContent = '🗺 Open in Maps';
+  btnMaps.removeAttribute('onclick');
   if (stop.mapQ) {
     btnMaps.href = 'https://maps.google.com/?q=' + stop.mapQ;
+    btnMaps.style.display = '';
+  } else if (n === 5) {
+    btnMaps.href = '#';
+    btnMaps.textContent = 'Come inside 🏠';
+    btnMaps.onclick = e => { e.preventDefault(); startFinal(); };
     btnMaps.style.display = '';
   } else {
     btnMaps.style.display = 'none';
@@ -1068,11 +1075,6 @@ function showAddress(n, animate) {
   drawTrail([STOPS[n].lat, STOPS[n].lng], animate);
 
   document.getElementById('tap-hint').classList.add('gone');
-
-  if (n === 5) {
-    setTimeout(startFinal, animate ? 800 : 0);
-    return;
-  }
 
   const card = document.getElementById('addr-card');
   card.classList.remove('hidden');
