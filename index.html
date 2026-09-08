@@ -571,7 +571,7 @@ const STOPS = [
     address: 'Salado Creek Greenway near Eisenhower Park, San Antonio, TX',
     mapQ: 'Salado+Creek+Greenway+near+Eisenhower+Park+San+Antonio+TX',
     lat: 29.5743, lng: -98.5657,
-    hint: 'Look under the concrete bridge. Check along the ledge where the bridge meets the embankment on the side closest to the trail.',
+    hint: 'Check the base of the tree right next to the bridge.',
     fromX: HOME_X, fromY: HOME_Y,
     mx: 30, my: 55,
     nextHint: 'Clue #2 is waiting, follow the scent! 🌮'
@@ -1041,31 +1041,6 @@ function moveRaccoon(toLatLng, onDone) {
 function enableTap(n, toLatLng) {
   tapFn = () => {
     if (isDone(n)) return;
-
-    if (n === 5 && navigator.geolocation) {
-      // Wiggle while checking location
-      const el = rrEl();
-      if (el) { el.className = 'rr-icon rr-wiggle'; setTimeout(() => { if (el) el.className = 'rr-icon rr-idle'; }, 500); }
-      navigator.geolocation.getCurrentPosition(
-        pos => {
-          const dist = distanceMeters(pos.coords.latitude, pos.coords.longitude, STOPS[5].lat, STOPS[5].lng);
-          if (dist <= 500) {
-            doMove(n, toLatLng);
-          } else {
-            // Not home yet, re-enable tap and show message
-            enableTap(n, toLatLng);
-            const box = document.getElementById('hint-box');
-            box.textContent = 'You\'re not home yet! Head home first, then tap.';
-            box.classList.add('show');
-            setTimeout(() => box.classList.remove('show'), 4000);
-          }
-        },
-        () => doMove(n, toLatLng), // geo error: allow through
-        { timeout: 8000, maximumAge: 30000 }
-      );
-      return;
-    }
-
     raccoonMark.off('click', tapFn);
     tapFn = null;
     doMove(n, toLatLng);
