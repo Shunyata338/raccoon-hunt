@@ -622,6 +622,17 @@ const STOPS = [
     lat: 29.4460, lng: -98.5660,
     skipGeo: true,
     hint: null,
+    nextHint: 'Find the last tag inside. 🏠'
+  },
+  {
+    id: 6,
+    label: 'Home',
+    story: null,
+    address: null,
+    mapQ: null,
+    lat: 29.4460, lng: -98.5660,
+    skipGeo: true,
+    hint: null,
     nextHint: null
   }
 ];
@@ -670,7 +681,7 @@ function route() {
 
   // ?reset clears all progress and goes back to intro
   if (p.has('reset')) {
-    ['stop_1_done','stop_2_done','stop_3_done','stop_4_done','stop_5_done','intro_seen','theme']
+    ['stop_1_done','stop_2_done','stop_3_done','stop_4_done','stop_5_done','stop_6_done','intro_seen','theme']
       .forEach(k => LS.remove(k));
     clearPhotos().finally(() => location.replace('./'));
     return;
@@ -692,6 +703,14 @@ function route() {
     currentStop = 5;
     setTheme('playful');
     mountStop(5);
+    return;
+  }
+
+  if (req === 6) {
+    if (!isDone(5)) { location.replace('?stop=5'); return; }
+    markDone(6);
+    setTheme('playful');
+    startFinal();
     return;
   }
 
@@ -955,11 +974,6 @@ function mountStop(n) {
   if (stop.mapQ) {
     btnMaps.href = 'https://maps.google.com/?q=' + stop.mapQ;
     btnMaps.style.display = '';
-  } else if (n === 5) {
-    btnMaps.href = '#';
-    btnMaps.textContent = 'Come inside 🏠';
-    btnMaps.onclick = e => { e.preventDefault(); startFinal(); };
-    btnMaps.style.display = '';
   } else {
     btnMaps.style.display = 'none';
   }
@@ -1084,6 +1098,16 @@ function showAddress(n, animate) {
   }
 
   initPhotoSection(n);
+
+  // Stop 5 has no photo requirement so next-hint shows right away
+  if (n === 5) {
+    const stop = STOPS[n];
+    if (stop && stop.nextHint) {
+      setTimeout(() => {
+        document.getElementById('next-hint').textContent = stop.nextHint;
+      }, animate ? 700 : 0);
+    }
+  }
 }
 
 function copyAddr(text) {
